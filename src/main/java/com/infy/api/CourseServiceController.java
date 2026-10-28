@@ -3,10 +3,15 @@ package com.infy.api;
 //http//localhost:6969/infyPlatform/course
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
+
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,9 +26,15 @@ import org.springframework.web.multipart.MultipartFile;
 import com.infy.dto.CourseDTO;
 import com.infy.dto.RequestLessonDTO;
 import com.infy.dto.ResponseLessonDTO;
+import com.infy.entity.Lesson;
 import com.infy.exception.CourseException;
+import com.infy.repository.LessonRepository;
 import com.infy.service.CourseLessonService;
 import com.infy.service.CourseLessonServiceImpl;
+
+
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 
 @RestController
 @RequestMapping("/infyPlatform")
@@ -31,6 +42,9 @@ public class CourseServiceController {
 	
 	@Autowired
 	private CourseLessonService courseLessonService;
+	
+	@Autowired
+	private LessonRepository lessonRepository;
 	
 	@PostMapping("/course")
 	public ResponseEntity<String> addCourse(@RequestBody CourseDTO course) throws CourseException{ //YAML -> Java by requestMapping
@@ -96,7 +110,41 @@ public class CourseServiceController {
 
         return new ResponseEntity<>(lessonDTO, HttpStatus.OK);
     }
+    @GetMapping("/lesson/{lessonId}/pdf")
+    public ResponseEntity<Resource> getLessonPdf(
+            @PathVariable Integer lessonId) throws IOException, CourseException {
 
+        // 1. Find lesson from database
+        Lesson lesson = lessonRepository.findById(lessonId)
+        		
+                .orElseThrow(() -> new CourseException("Lesson not found"));
+
+        // 2. Get file path stored in database
+        String filePath = lesson.getUrl();
+
+        // 3. Convert the stored path into the actual file location
+        String basePath = "C:/Users/DEll/Downloads/learningPlatform/learningPlatform/";
+
+        Path path = Paths.get(basePath + filePath);
+
+        // 4. Check whether file exists
+        if (!Files.exists(path)) {
+            throw new CourseException("PDF file not found");
+        }
+
+        // 5. Read the PDF as a Resource
+//        Resource resource = new UrlResource(((java.nio.file.Path) path).toUri());
+        Resource resource = new UrlResource(path.toUri());
+
+        // 6. Return the PDF
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(resource);
+    }
+    
+    
+    
+    
 //    @GetMapping("/lesson/course/{courseId}")
 //    public ResponseEntity<List<LessonDTO>> getLessonsByCourseId(
 //            @PathVariable Integer courseId) throws CourseException {
